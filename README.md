@@ -1,5 +1,8 @@
 # Blockchain-Based Library Book Lending Tracker
 
+> **Formative 2** (token rewards, pending pool, proof-of-work mining, UTXO and account models)
+> is in [`formative-2/`](formative-2/). Everything below describes Formative 1, which is unchanged.
+
 A C-based blockchain application for tracking library book lending and returns using SHA-256 hashing, ECDSA digital signatures, persistent storage, and blockchain integrity validation.
 
 ---

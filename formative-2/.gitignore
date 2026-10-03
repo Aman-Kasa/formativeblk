@@ -1,0 +1,18 @@
+# build artifacts
+*.o
+*.out
+/build/
+/lending_tracker
+
+# generated at runtime — not source
+/data/chain.txt
+/data/pending.txt
+/data/transfers_*.txt
+
+# private key material — never commit
+/keys/*.pem
+!/keys/.gitkeep
+
+# editor/OS cruft
+.DS_Store
+*.swp
