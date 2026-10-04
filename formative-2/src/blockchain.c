@@ -226,6 +226,16 @@ static Block *new_pending(const char *book_id, const char *title,
     return b;
 }
 
+static int tx_id_in_use(const Blockchain *chain, const PendingPool *pool, const char *tx_id) {
+    for (const Block *b = chain->head; b; b = b->next) {
+        if (b->tx_id[0] && strcmp(b->tx_id, tx_id) == 0) return 1;
+    }
+    for (const Block *b = pool->head; b; b = b->next) {
+        if (b->tx_id[0] && strcmp(b->tx_id, tx_id) == 0) return 1;
+    }
+    return 0;
+}
+
 LendResult lending_borrow(const Blockchain *chain, PendingPool *pool, const Registry *reg,
                           const char *book_id, const char *member_id) {
     const Book *book = registry_find_book(reg, book_id);
@@ -256,6 +266,14 @@ LendResult lending_return(const Blockchain *chain, PendingPool *pool, const Regi
     Block *b = new_pending(loan->book_id, loan->book_title, loan->member_id, loan->member_name,
                            "RETURNED", reward);
     if (!b) return LEND_ERR_NO_MEMORY;
+    /* A tx_id must identify one transaction. The same member returning the
+     * same book twice within one second (only possible from a script) would
+     * otherwise produce an identical reward transaction, so the later event
+     * is stamped one second later until its tx_id is unique. */
+    while (tx_id_in_use(chain, pool, b->tx_id)) {
+        b->timestamp++;
+        block_compute_tx_id(b, b->tx_id);
+    }
     blocklist_append(pool, b);
     if (queued) *queued = b;
     return LEND_OK;

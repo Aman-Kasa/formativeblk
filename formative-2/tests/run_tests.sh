@@ -90,6 +90,10 @@ OUT=$(run "$S" account 'mine solo\nbalances\nexit\n')
 check "balance credited after mining (10 - 1 fee = 9)" matches "$OUT" "ALU001 +9 "
 
 S=$(make_sandbox)
+run "$S" utxo 'borrow BK001 ALU001\nreturn BK001\nborrow BK001 ALU001\nreturn BK001\nexit\n' >/dev/null
+check "every reward transaction gets a unique tx_id" [ "$(cut -d'|' -f8 "$S/data/pending.txt" | grep . | sort | uniq -d | wc -l)" -eq 0 ]
+
+S=$(make_sandbox)
 OUT=$(run "$S" utxo 'borrow BK002 ALU002\nadvance 15\nreturn BK002\nexit\n')
 check "late return creates a 5-coin reward transaction" has "$OUT" "LATE return, reward transaction of 5 coins"
 

@@ -138,23 +138,52 @@ void mine_pool(MiningContext *ctx, int n_miners) {
         Block *b = ctx->pool->head;
         blockchain_prepare(ctx->chain, b, ctx->difficulty);
 
-        /* Each round, every miner works through its own slice of the nonce
-         * space (the nonce simply carries on from where the previous miner
-         * stopped, so no two miners ever repeat each other's work). The
-         * first miner to hit a valid hash wins the block for the pool. */
+        /* All miners hash at the same time. In each round, miner i searches
+         * its own slice of the nonce space (hash_rate nonces, starting where
+         * miner i-1's slice ends), so no two miners repeat each other's
+         * work. A miner that finds a valid hash after k of its r attempts
+         * found it at time k/r through the round; the earliest finder wins
+         * the block. Every miner is credited only with the attempts it had
+         * made by that moment, which is what the reward share is based on. */
         int winner = -1, rounds = 0;
+        unsigned long round_start = 0;
+        double win_time = 0.0;
         while (winner < 0) {
             rounds++;
-            for (int i = 0; i < n_miners && winner < 0; i++) {
+            unsigned long slice_start = round_start;
+            unsigned long found_at[POOL_MAX_MINERS];
+            Block trial[POOL_MAX_MINERS];
+            for (int i = 0; i < n_miners; i++) {
+                trial[i] = *b;
+                trial[i].nonce = slice_start;
                 unsigned long a = 0;
-                /* On a miss, blockchain_pow leaves the nonce on the next
-                 * untried value, which is where the next miner starts. */
-                if (blockchain_pow(b, (unsigned long)miners[i].hash_rate, &a)) winner = i;
-                miners[i].attempts += a;
+                found_at[i] = blockchain_pow(&trial[i], (unsigned long)miners[i].hash_rate, &a) ? a : 0;
+                slice_start += (unsigned long)miners[i].hash_rate;
+                if (found_at[i]) {
+                    double t = (double)found_at[i] / miners[i].hash_rate;
+                    if (winner < 0 || t < win_time) { winner = i; win_time = t; }
+                }
             }
+            for (int i = 0; i < n_miners; i++) {
+                unsigned long rate = (unsigned long)miners[i].hash_rate;
+                unsigned long done = rate;                       /* no winner: full round */
+                if (winner == i) {
+                    done = found_at[i];
+                } else if (winner >= 0) {
+                    done = (unsigned long)(win_time * rate + 0.999999); /* work done by then */
+                    if (done > rate) done = rate;
+                }
+                miners[i].attempts += done;
+            }
+            if (winner >= 0) {
+                b->nonce = trial[winner].nonce;
+                memcpy(b->hash, trial[winner].hash, HASH_HEX_LEN);
+            }
+            round_start = slice_start;
         }
         miners[winner].blocks_found++;
-        printf("\nBlock %d: found by M%d in round %d (nonce %lu)\n", b->index, winner + 1, rounds, b->nonce);
+        printf("\nBlock %d: found by M%d in round %d, %.0f%% of the way through it (nonce %lu)\n",
+               b->index, winner + 1, rounds, win_time * 100.0, b->nonce);
 
         long fee = confirm_front_block(ctx);
         if (fee < 0) break;

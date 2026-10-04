@@ -97,7 +97,7 @@ Run the full suite:
 make test
 ```
 
-It covers 71 checks: the pending pool, rewards, the overdue case, proof of work, both
+It covers 72 checks: the pending pool, rewards, the overdue case, proof of work, both
 transaction models, all three mining methods, tamper detection, and an AddressSanitizer run.
 
 To try each method by hand, start a fresh session with `./lending_tracker --model utxo --seed 7`
@@ -206,7 +206,7 @@ Each member is `{balance, nonce, history}`.
 | | How it works | Rewards |
 |---|---|---|
 | **Solo** | One miner runs proof of work on each pending block and prints the attempts per block. | 50 per block + all fees, to the one miner. |
-| **Pool** | 2–8 miners, each with a random hash rate of 50–400 attempts per round. In each round, every miner works through its own slice of the nonce space; the first valid hash wins the block. | Total minus a 2% pool fee, split by `miner_attempts / total_attempts`, shown in a table. |
+| **Pool** | 2–8 miners, each with a random hash rate of 50–400 attempts per round. All miners hash at the same time, each on its own slice of the nonce space. The miner that finds a valid hash earliest in the round wins the block, and each miner is credited with the attempts it had made by that moment. | Total minus a 2% pool fee, split by `miner_attempts / total_attempts`, shown in a table. |
 | **Cloud** | A rented rig with 2,000 attempts per round, for 1–5 rounds. Proof of work continues across rounds. | Each block earns 50 + fees, minus 10% maintenance. Each round costs 20 rental. It reports gross earnings, total fees and net profit, and warns whenever cumulative fees exceed cumulative rewards. |
 
 ## 8. Design choices and assumptions
@@ -257,6 +257,6 @@ src/
   registry.c      books.txt / members.txt   (unchanged from Formative 1)
   crypto.c        SHA-256 and ECDSA          (Formative 1 + key fix)
 tests/
-  run_tests.sh    71-check test suite
+  run_tests.sh    72-check test suite
   forge_chain.py  attacker simulation for the tamper demo
 ```
